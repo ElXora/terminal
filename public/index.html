@@ -1,51 +1,68 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Web Terminal</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.5.0/css/xterm.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5/css/xterm.css">
   <style>
-    body { margin: 0; background: #000; font-family: monospace; }
-    #terminal { width: 100vw; height: 100vh; }
-    .instructions {
+    body { margin:0; background:#000; height:100vh; overflow:hidden; font-family:monospace; }
+    #terminal { height:100%; }
+    #overlay {
       position: absolute;
       top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.7);
-      padding: 10px; border-radius: 5px; z-index: 10;
+      padding: 12px; border-radius: 6px; z-index: 10; max-width: 90%;
     }
   </style>
 </head>
 <body>
-  <div class="instructions">
-    Type commands below.<br>
-    Try: <code>whoami</code> or <code>curl -sSf https://sshx.io/get | sh</code><br>
-    Then: <code>sshx</code> → copy the link!
+  <div id="overlay">
+    Interactive browser terminal<br>
+    Commands run here — type freely.<br>
+    Example:<br>
+    • whoami<br>
+    • ls -la<br>
+    • curl -sSf https://sshx.io/get | sh<br>
+    • sshx   (copy the printed link)
   </div>
+
   <div id="terminal"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/xterm@5.5.0/lib/xterm.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4/dist/socket.io.min.js"></script>
   <script>
     const term = new Terminal({
       cursorBlink: true,
-      theme: { background: '#000000', foreground: '#ffffff' }
+      theme: { background: '#000000', foreground: '#dddddd', cursor: '#00ff00' },
+      fontFamily: 'monospace',
+      fontSize: 14
     });
+
     term.open(document.getElementById('terminal'));
-    term.resize(Math.floor(window.innerWidth / 10), Math.floor(window.innerHeight / 20));
+    term.fitAddon = new FitAddon.FitAddon();  // Optional better resize
+    term.loadAddon(term.fitAddon);
+    term.fitAddon.fit();
 
-    const socket = io();
+    const socket = io({ reconnection: false });
 
-    socket.on('output', data => term.write(data));
-
-    term.onData(data => socket.emit('input', data));
-
-    // Resize handler
-    window.addEventListener('resize', () => {
-      term.resize(Math.floor(window.innerWidth / 10), Math.floor(window.innerHeight / 20));
-      socket.emit('resize', { cols: term.cols, rows: term.rows });
+    socket.on('connect', () => {
+      term.writeln('\r\nConnected to shell.\r\n');
+      term.focus();
     });
 
-    term.focus();
+    socket.on('output', (data) => {
+      term.write(data);
+    });
+
+    term.onData((data) => {
+      socket.emit('input', data);
+    });
+
+    term.onResize(({ cols, rows }) => {
+      socket.emit('resize', { cols, rows });
+    });
+
+    window.addEventListener('resize', () => term.fitAddon.fit());
   </script>
 </body>
 </html>
