@@ -6,7 +6,7 @@ const pty = require('node-pty');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*" }   // Change to your domain later for security
+  cors: { origin: '*' }  // For testing; restrict later
 });
 
 app.use(express.static('public'));
@@ -16,42 +16,35 @@ app.get('/', (req, res) => {
 });
 
 io.on('connection', (socket) => {
-  console.log('User connected');
+  console.log('Connection opened');
 
-  // Spawn a shell (bash on Linux/macOS, powershell or cmd on Windows)
   const shell = pty.spawn(
     process.platform === 'win32' ? 'powershell.exe' : 'bash',
     [],
     {
-      name: 'xterm-color',
+      name: 'xterm-256color',
       cols: 80,
-      rows: 30,
-      cwd: process.env.HOME,
-      env: process.env
+      rows: 24,
+      cwd: process.env.HOME || '/tmp',
+      env: { ...process.env, TERM: 'xterm-256color' }
     }
   );
 
-  // Send shell output → browser
-  shell.onData(data => socket.emit('output', data));
+  shell.onData((data) => socket.emit('output', data.toString()));
 
-  // Browser input → shell
-  socket.on('input', data => {
-    shell.write(data);
-  });
+  socket.on('input', (data) => shell.write(data));
 
-  // Resize handling (optional but nice)
   socket.on('resize', ({ cols, rows }) => {
     shell.resize(cols, rows);
   });
 
-  // Cleanup on disconnect
   socket.on('disconnect', () => {
     shell.kill();
-    console.log('User disconnected');
+    console.log('Connection closed');
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const port = process.env.PORT || 3000;
+server.listen(port, () => {
+  console.log(`Terminal server listening on ${port}`);
 });
