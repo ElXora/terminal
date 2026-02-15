@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Web Terminal</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.5.0/css/xterm.css" />
+  <style>
+    body { margin: 0; background: #000; font-family: monospace; }
+    #terminal { width: 100vw; height: 100vh; }
+    .instructions {
+      position: absolute;
+      top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.7);
+      padding: 10px; border-radius: 5px; z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div class="instructions">
+    Type commands below.<br>
+    Try: <code>whoami</code> or <code>curl -sSf https://sshx.io/get | sh</code><br>
+    Then: <code>sshx</code> → copy the link!
+  </div>
+  <div id="terminal"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.5.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
+  <script>
+    const term = new Terminal({
+      cursorBlink: true,
+      theme: { background: '#000000', foreground: '#ffffff' }
+    });
+    term.open(document.getElementById('terminal'));
+    term.resize(Math.floor(window.innerWidth / 10), Math.floor(window.innerHeight / 20));
+
+    const socket = io();
+
+    socket.on('output', data => term.write(data));
+
+    term.onData(data => socket.emit('input', data));
+
+    // Resize handler
+    window.addEventListener('resize', () => {
+      term.resize(Math.floor(window.innerWidth / 10), Math.floor(window.innerHeight / 20));
+      socket.emit('resize', { cols: term.cols, rows: term.rows });
+    });
+
+    term.focus();
+  </script>
+</body>
+</html>
